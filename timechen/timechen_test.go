@@ -1,6 +1,7 @@
 package timechen
 
 import (
+	"fmt"
 	. "github.com/smartystreets/goconvey/convey"
 	"testing"
 	"time"
@@ -170,8 +171,13 @@ func TestTimeGen(t *testing.T) {
 					"是星期几",func(){
 					t1:=time.Now()
 					year,numweek:=t1.ISOWeek()
+					yearday:=t1.YearDay()
+					wekday:=t1.Weekday()
 					So(year,ShouldEqual,2019)
 					So(numweek,ShouldEqual,2)
+					So(yearday,ShouldEqual,11)
+					So(wekday,ShouldEqual,time.Friday)
+
 				})
 
 
@@ -224,6 +230,65 @@ func TestTimeGen(t *testing.T) {
 
 				})
 
+				Convey("时间加减",func(){
+					Convey("时间增加年月日",func(){
+						t1:=time.Now()
+						t1.AddDate(1,2,3)
+						So(t1.Year(),ShouldEqual,2020)
+
+					})
+					Convey("时间增加 时间间隔-时分秒",func(){
+						tdur:=time.Duration(time.Hour*2)
+						t1:=time.Now()
+						t2:=t1.Add(tdur)
+						So(t2.Hour(),ShouldEqual,11)
+					})
+					Convey("时间减少",func(){
+						t1:=time.Now()
+						time.Sleep(time.Second*3)
+						t2:=time.Now()
+						tdur:=t2.Sub(t1)
+						So(tdur.Seconds(),ShouldEqual,3)
+
+					})
+				})
+				Convey("时间按照精度四舍五入",func(){
+					t := time.Date(0, 0, 0, 12, 15, 30, 918273645, time.UTC)
+					round := []time.Duration{
+						time.Nanosecond,
+						time.Microsecond,
+						time.Millisecond,
+						time.Second,
+						2 * time.Second,
+						time.Minute,
+						10 * time.Minute,
+						time.Hour,
+					}
+					for _, d := range round {
+						fmt.Printf("t.Round(%6s) = %s\n", d, t.Round(d).Format("15:04:05.999999999"))
+					}
+					So(1,ShouldEqual,1)
+
+				})
+				Convey("时间舍入，但是往小的舍，靠零",func(){
+					t, _ := time.Parse("2006 Jan 02 15:04:05", "2012 Dec 07 12:15:30.918273645")
+					trunc := []time.Duration{
+						time.Nanosecond,
+						time.Microsecond,
+						time.Millisecond,
+						time.Second,
+						2 * time.Second,
+						time.Minute,
+						10 * time.Minute,
+						time.Hour,
+					}
+					for _, d := range trunc {
+						fmt.Printf("t.Truncate(%6s) = %s\n", d, t.Truncate(d).Format("15:04:05.999999999"))
+					}
+					So(1,ShouldEqual,1)
+
+				})
+
 
 
 			})
@@ -232,9 +297,43 @@ func TestTimeGen(t *testing.T) {
 
 
 			Convey("时间转换",func(){
-				Convey("转换为秒 纳秒",func(){
+				Convey("时间转换为字符串",func(){
+					t1:=time.Now()
+					str:=t1.Format(time.RFC822)
+					SkipSo(str,ShouldEqual,"2019ss")
 
+					str2:=t1.String()
+					So(str2,ShouldEqual,"2010ss")
 
+				})
+				Convey("时间信息打包，发送，在解包",func(){
+					Convey("glob 包",func(){
+						t1:=time.Now()
+						temp,err:=t1.GobEncode()
+						var t3 time.Time
+						SkipSo(len(temp),ShouldEqual,3)
+						fmt.Printf("%d,%s\n",len(temp),err)
+						t3.GobDecode(temp)
+
+						fmt.Printf("%s \n",t3.String())
+						So(t3.String(),ShouldEqual,t1.String())
+
+					})
+
+					Convey("时间转json形式",func(){
+						t1:=time.Now()
+						temp,_:=t1.MarshalJSON()
+						var t2 time.Time
+						t2.UnmarshalJSON(temp)
+						So(t2.String(),ShouldEqual,t1.String())
+					})
+					Convey("时间转文本形式",func(){
+						t1:=time.Now()
+						temp,_:=t1.MarshalText()
+						var t2 time.Time
+						t2.UnmarshalText(temp)
+						So(t2.String(),ShouldEqual,t1.String())
+					})
 				})
 
 
@@ -247,6 +346,93 @@ func TestTimeGen(t *testing.T) {
 
 
 
+
+
+
+		})
+		Convey("时间间隔相关",func(){
+			Convey("时间间隔 生成", func() {
+				Convey("时间间隔实际上是一个整数，时分秒都最终转换为一个ns保存", func() {
+					tdu:=time.Second*9
+					SkipSo(tdu.String(),ShouldEqual,"90s")
+
+				})
+				Convey("字符串转时间间隔" +
+					"ns、us /µs、ms、s、m、h。", func() {
+					str:="1h20m19us"
+					tdu,_:=time.ParseDuration(str)
+					So(tdu.String(),ShouldEqual,"1h2om")
+				})
+				Convey("时间差值产生一个间隔，有sub或者since",func(){
+					t1:=time.Date(2019,1,20,2,10,1,3,time.UTC)
+					tdu:=time.Since(t1)
+					So(tdu.String(),ShouldEqual,"1h")
+				})
+			})
+			Convey("时间间隔转字符串", func() {
+				t1:=time.Date(2019,1,20,2,10,1,3,time.UTC)
+				tdu:=time.Since(t1)
+				So(tdu.String(),ShouldEqual,"1h")
+				})
+			Convey("提取时间间隔的信息",func(){
+				tdu,_:=time.ParseDuration("1h20m3s29ns")
+				SkipSo(tdu.Hours(),ShouldEqual,1)
+				So(tdu.Minutes(),ShouldEqual,20)
+				So(tdu.Nanoseconds(),ShouldEqual,29)
+			})
+
+
+		})
+		Convey("定时器相关", func() {
+			Convey("单次触发函数", func() {
+				time.AfterFunc(time.Second*3,func(){
+					fmt.Print("helel\n")
+				})
+
+
+			})
+			Convey("单次触发", func() {
+				ter1:=time.NewTimer(time.Second*3)
+				t1:=<-ter1.C
+				So(t1.Year(),ShouldEqual,2019)
+				ter2:=time.NewTimer(time.Second*10)
+				ter2.Reset(time.Second*3)
+				//如果要重置time 需要这么执行
+				if !ter2.Stop() {
+					<-ter2.C
+				}
+				ter2.Reset(time.Second*3)
+				<-ter2.C
+
+			})
+			SkipConvey("单次触发直接返回信道",func(){
+				c:=make(chan int)
+				select {
+				case m := <-c:
+					fmt.Println(m)
+				case <-time.After(5 * time.Second):
+					fmt.Println("timed out")
+					So(1,ShouldEqual,1)
+				}
+			})
+			Convey("多次触发", func() {
+				tk:=time.NewTicker(time.Second*5)
+				x:=0
+				for x=0;x<3;x++{
+					tm := <-tk.C
+					fmt.Print(tm)
+
+				}
+				tk.Stop()
+
+
+			})
+			SkipConvey("多次触发，且不需要关闭", func() {
+				c := time.Tick(1 * time.Minute)
+				for now := range c {
+					fmt.Printf("%v \n",now)
+				}
+			})
 
 
 
