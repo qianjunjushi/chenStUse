@@ -199,7 +199,7 @@ func	TestReadall(t *testing.T) {
 
 }
 
-func TestReadAbsfile(t * testing.T){
+func TestReadAbsfile(t *testing.T) {
 	Convey("一次性读取一个文件的所有内容",t,func(){
 		fiepath:="G:\\test\\12.jpg"
 		temp,err:=ioutil.ReadFile(fiepath)
